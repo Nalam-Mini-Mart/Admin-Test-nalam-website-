@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NalamHQ — Command Center</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        * { box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #090d16; 
+            color: #f1f5f9; 
+            overflow-x: hidden;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+        .glass-panel { 
+            background: rgba(13, 19, 33, 0.85); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px); 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+        
+        .glass-card { 
+            background: rgba(15, 23, 42, 0.6); 
+            border: 1px solid rgba(255, 255, 255, 0.07); 
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); 
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
+        }
+        
+        .glass-card:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.45); 
+            border-color: rgba(255, 255, 255, 0.14); 
+        }
+
+        .tab-btn { 
+            transition: all 0.25s ease; 
+            position: relative; 
+            color: #94a3b8;
+        }
+        .tab-btn::after { 
+            content: ''; 
+            position: absolute; 
+            bottom: -1px; 
+            left: 0; 
+            width: 0%; 
+            height: 2px; 
+            background: linear-gradient(90deg, #3b82f6, #6366f1); 
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+            transition: width 0.25s ease; 
+        }
+        .tab-btn.active { color: #ffffff; }
+        .tab-btn.active::after { width: 100%; }
+
+        .tab-content { display: none; animation: fadeIn 0.25s ease forwards; }
+        .tab-content.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .metric-gradient-blue { 
+            background: linear-gradient(135deg, #60a5fa 0%, #818cf8 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+        .metric-gradient-purple { 
+            background: linear-gradient(135deg, #c084fc 0%, #e879f9 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+        .metric-gradient-emerald { 
+            background: linear-gradient(135deg, #34d399 0%, #2dd4bf 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+
+        /* Google Ads Date Picker Dropdown Styles */
+        .preset-btn {
+            width: 100%;
+            text-align: left;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+            transition: all 0.15s ease;
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .preset-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .preset-btn.active {
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.12);
+            border-color: rgba(56, 189, 248, 0.25);
+        }
+
+        .cal-day-cell {
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.12s ease, color 0.12s ease;
+            user-select: none;
+        }
+        .cal-day-cell:hover:not(.empty) {
+            background: rgba(59, 130, 246, 0.28);
+            color: #ffffff;
+        }
+        .cal-day-cell.selected-endpoint {
+            background: #2563eb !important;
+            color: #ffffff !important;
+            font-weight: 800;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
+            border-radius: 6px !important;
+        }
+        .cal-day-cell.in-range {
+            background: rgba(37, 99, 235, 0.22);
+            color: #93c5fd;
+            border-radius: 0;
+        }
+        .cal-day-cell.in-range-hover {
+            background: rgba(59, 130, 246, 0.18) !important;
+            color: #bfdbfe !important;
+        }
+
+        /* Accordion Collapsible (Fixed padding artifact bug) */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+            opacity: 0;
+        }
+        .accordion-content.open {
+            max-height: 3500px;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-blue-500/30">
+
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
+                <i class="fas fa-radar text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl font-black text-white tracking-tight">Nalam<span class="text-blue-400 font-normal">HQ</span></h1>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">LIVE</span>
+                </div>
+                <p class="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Intelligent Command Center</p>
+            </div>
+        </div>
+        
+        <!-- Google Ads-Style Date Picker (Master Controller) -->
+        <div class="relative" id="datePickerRoot">
+            <button id="datePickerToggleBtn" class="flex items-center gap-3 bg-slate-800/90 hover:bg-slate-700/90 text-white px-4 py-2.5 rounded-xl border border-slate-700/80 shadow-lg shadow-black/30 transition-all text-sm font-semibold group cursor-pointer">
+                <div class="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-all">
+                    <i class="far fa-calendar-alt text-sm"></i>
+                </div>
+                <span id="dateRangeDisplayLabel" class="tracking-wide">Today</span>
+                <i class="fas fa-chevron-down text-slate-400 text-xs ml-1 transition-transform duration-200" id="datePickerChevron"></i>
+            </button>
+            
+            <!-- Dropdown Popover -->
+            <div id="datePickerDropdown" class="hidden absolute right-0 mt-3 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-2xl shadow-2xl p-5 z-50 w-[320px] sm:w-[580px] max-w-[95vw]">
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-5">
+                    <!-- Left: Presets Menu (5 Cols) -->
+                    <div class="sm:col-span-5 flex flex-col gap-1.5 border-b sm:border-b-0 sm:border-r border-slate-800 pb-4 sm:pb-0 sm:pr-4">
+                        <div class="text-[11px] font-bold tracking-wider text-slate-400 uppercase px-2 mb-1">Date Presets</div>
+                        <button type="button" class="preset-btn active" data-preset="today">Today</button>
+                        <button type="button" class="preset-btn" data-preset="yesterday">Yesterday</button>
+                        <button type="button" class="preset-btn" data-preset="last7">Last 7 Days</button>
+                        <button type="button" class="preset-btn" data-preset="last15">Last 15 Days</button>
+                        <button type="button" class="preset-btn" data-preset="last30">Last 30 Days</button>
+                        <button type="button" class="preset-btn" data-preset="custom">Custom Range</button>
+                    </div>
+                    
+                    <!-- Right: Interactive Single Calendar (7 Cols) -->
+                    <div class="sm:col-span-7 flex flex-col justify-between">
+                        <div>
+                            <!-- Month Navigation -->
+                            <div class="flex items-center justify-between mb-3 px-1">
+                                <button type="button" id="calPrevBtn" class="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-all cursor-pointer">
+                                    <i class="fas fa-chevron-left text-xs"></i>
+                                </button>
+                                <span id="calMonthYearLabel" class="text-sm font-bold text-white tracking-wide"></span>
+                                <button type="button" id="calNextBtn" class="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-all cursor-pointer">
+                                    <i class="fas fa-chevron-right text-xs"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Day Headers -->
+                            <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                            </div>
+                            
+                            <!-- Days Grid -->
+                            <div id="calDaysGrid" class="grid grid-cols-7 gap-1"></div>
+                        </div>
+                        
+                        <!-- Footer Selection & Apply -->
+                        <div class="pt-4 mt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                            <div class="text-[11px] text-slate-400 truncate">
+                                <span id="calPreviewRangeText" class="text-slate-200 font-medium">Click to select range</span>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button type="button" id="calCancelBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all cursor-pointer">Cancel</button>
+                                <button type="button" id="calApplyBtn" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30 transition-all cursor-pointer">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-8">
+        
+        <!-- Top Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Total Revenue -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+                <div class="flex justify-between items-start">
+                    <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Total Revenue</p>
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+                        <i class="fas fa-wallet text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black metric-gradient-blue tracking-tight" id="valRevenue">₹0</p>
+            </div>
+            
+            <!-- Total Orders -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
+                <div class="flex justify-between items-start">
+                    <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Total Orders</p>
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                        <i class="fas fa-shopping-bag text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black metric-gradient-emerald tracking-tight" id="valOrders">0</p>
+            </div>
+            
+            <!-- Total Website Visits (Sessions) -->
+            <div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 relative overflow-hidden group">
+                <div class="absolute -right-6 -top-6 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
+                <div class="flex justify-between items-start">
+                    <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Total Website Visits (Sessions)</p>
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
+                        <i class="fas fa-users text-sm"></i>
+                    </div>
+                </div>
+                <p class="text-4xl font-black metric-gradient-purple tracking-tight" id="valVisits">0</p>
+            </div>
+        </div>
+
+        <!-- 3-Tab Horizontal Navigation System -->
+        <div class="flex gap-8 border-b border-slate-800 pb-px overflow-x-auto hide-scrollbar">
+            <button type="button" class="tab-btn active pb-3.5 text-sm font-semibold tracking-wide whitespace-nowrap flex items-center gap-2 cursor-pointer" data-target="tabOrders">
+                <i class="fas fa-list-ul"></i>
+                <span>Order Feed</span>
+                <span id="tabBadgeOrders" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">0</span>
+            </button>
+            <button type="button" class="tab-btn pb-3.5 text-sm font-semibold tracking-wide whitespace-nowrap flex items-center gap-2 cursor-pointer" data-target="tabAnalytics">
+                <i class="fas fa-chart-pie"></i>
+                <span>Item Analytics</span>
+                <span id="tabBadgeAnalytics" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">0</span>
+            </button>
+            <button type="button" class="tab-btn pb-3.5 text-sm font-semibold tracking-wide whitespace-nowrap flex items-center gap-2 cursor-pointer" data-target="tabSessions">
+                <i class="fas fa-route"></i>
+                <span>User Sessions (Behavior Tracker)</span>
+                <span id="tabBadgeSessions" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">0</span>
+            </button>
+        </div>
+
+        <!-- Tab Contents (Only 1 Active At A Time) -->
+        <div class="min-h-[450px]">
+            <!-- TAB 1: Order Feed -->
+            <div id="tabOrders" class="tab-content active">
+                <div id="ordersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </div>
+            
+            <!-- TAB 2: Item Analytics -->
+            <div id="tabAnalytics" class="tab-content">
+                <div id="analyticsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+            </div>
+            
+            <!-- TAB 3: User Sessions (The Behavior Tracker) -->
+            <div id="tabSessions" class="tab-content">
+                <div id="sessionsContainer" class="space-y-4 max-w-4xl mx-auto"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        // ==========================================
+        // FIREBASE CONFIGURATION
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDLCvxFRNbKdoRpgSti2sAfxaTdws3IkX0",
+            authDomain: "nalam-website.firebaseapp.com",
+            projectId: "nalam-website",
+            storageBucket: "nalam-website.firebasestorage.app",
+            messagingSenderId: "557139585079",
+            appId: "1:557139585079:web:de47feabeb5959504737b2"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        // ==========================================
+
+        // Master Date Controller State
+        let activeStartDate = new Date();
+        activeStartDate.setHours(0, 0, 0, 0);
+        
+        let activeEndDate = new Date();
+        activeEndDate.setHours(23, 59, 59, 999);
+
+        let selectedPreset = 'today';
+        
+        // Custom Calendar State
+        let calCurrentMonth = new Date();
+        calCurrentMonth.setDate(1);
+        let tempStartDate = new Date(activeStartDate);
+        let tempEndDate = new Date(activeEndDate);
+        let isSelectingCustom = false;
+
+        // Firebase Unsubscribers
+        let unsubOrders = null;
+        let unsubSessions = null;
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initDatePicker();
+            initTabs();
+        });
+
+        // ==========================================
+        // GOOGLE ADS-STYLE DATE PICKER LOGIC
+        // ==========================================
+        function initDatePicker() {
+            const toggleBtn = document.getElementById('datePickerToggleBtn');
+            const dropdown = document.getElementById('datePickerDropdown');
+            const chevron = document.getElementById('datePickerChevron');
+            const prevBtn = document.getElementById('calPrevBtn');
+            const nextBtn = document.getElementById('calNextBtn');
+            const cancelBtn = document.getElementById('calCancelBtn');
+            const applyBtn = document.getElementById('calApplyBtn');
+
+            // Toggle Dropdown
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = dropdown.classList.contains('hidden');
+                if (isHidden) {
+                    openDatePicker();
+                } else {
+                    closeDatePicker();
+                }
+            });
+
+            // Close on click outside
+            document.addEventListener('click', (e) => {
+                const root = document.getElementById('datePickerRoot');
+                if (root && !root.contains(e.target)) {
+                    closeDatePicker();
+                }
+            });
+
+            // Preset Buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const preset = e.currentTarget.dataset.preset;
+                    handlePresetClick(preset);
+                });
+            });
+
+            // Month Navigation
+            prevBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                calCurrentMonth.setMonth(calCurrentMonth.getMonth() - 1);
+                renderCalendar();
+            });
+            nextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                calCurrentMonth.setMonth(calCurrentMonth.getMonth() + 1);
+                renderCalendar();
+            });
+
+            // Cancel
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeDatePicker();
+            });
+
+            // Apply Button
+            applyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (tempStartDate && tempEndDate) {
+                    activeStartDate = new Date(tempStartDate);
+                    activeStartDate.setHours(0, 0, 0, 0);
+                    
+                    activeEndDate = new Date(tempEndDate);
+                    activeEndDate.setHours(23, 59, 59, 999);
+                } else if (tempStartDate && !tempEndDate) {
+                    activeStartDate = new Date(tempStartDate);
+                    activeStartDate.setHours(0, 0, 0, 0);
+                    
+                    activeEndDate = new Date(tempStartDate);
+                    activeEndDate.setHours(23, 59, 59, 999);
+                }
+                
+                selectedPreset = 'custom';
+                updatePresetButtonUI('custom');
+                updateDisplayLabel();
+                closeDatePicker();
+                applyDateFilter();
+            });
+
+            // Automatically initialize to 'Today' on load
+            handlePresetClick('today');
+        }
+
+        function openDatePicker() {
+            const dropdown = document.getElementById('datePickerDropdown');
+            const chevron = document.getElementById('datePickerChevron');
+            dropdown.classList.remove('hidden');
+            chevron.classList.add('rotate-180');
+            tempStartDate = new Date(activeStartDate);
+            tempEndDate = new Date(activeEndDate);
+            calCurrentMonth = new Date(activeStartDate);
+            calCurrentMonth.setDate(1);
+            isSelectingCustom = false;
+            renderCalendar();
+            updatePreviewRangeText();
+        }
+
+        function closeDatePicker() {
+            const dropdown = document.getElementById('datePickerDropdown');
+            const chevron = document.getElementById('datePickerChevron');
+            dropdown.classList.add('hidden');
+            chevron.classList.remove('rotate-180');
+            isSelectingCustom = false;
+        }
+
+        function handlePresetClick(preset) {
+            selectedPreset = preset;
+            updatePresetButtonUI(preset);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const endToday = new Date();
+            endToday.setHours(23, 59, 59, 999);
+
+            if (preset === 'today') {
+                activeStartDate = new Date(today);
+                activeEndDate = new Date(endToday);
+            } else if (preset === 'yesterday') {
+                const yest = new Date(today);
+                yest.setDate(yest.getDate() - 1);
+                const endYest = new Date(yest);
+                endYest.setHours(23, 59, 59, 999);
+                activeStartDate = yest;
+                activeEndDate = endYest;
+            } else if (preset === 'last7') {
+                const d = new Date(today);
+                d.setDate(d.getDate() - 6);
+                activeStartDate = d;
+                activeEndDate = endToday;
+            } else if (preset === 'last15') {
+                const d = new Date(today);
+                d.setDate(d.getDate() - 14);
+                activeStartDate = d;
+                activeEndDate = endToday;
+            } else if (preset === 'last30') {
+                const d = new Date(today);
+                d.setDate(d.getDate() - 29);
+                activeStartDate = d;
+                activeEndDate = endToday;
+            } else if (preset === 'custom') {
+                // Prepare for custom range selection
+                isSelectingCustom = false;
+                tempStartDate = null;
+                tempEndDate = null;
+                updatePreviewRangeText();
+                renderCalendar();
+                return;
+            }
+
+            tempStartDate = new Date(activeStartDate);
+            tempEndDate = new Date(activeEndDate);
+            calCurrentMonth = new Date(activeStartDate);
+            calCurrentMonth.setDate(1);
+            isSelectingCustom = false;
+            
+            updateDisplayLabel();
+            updatePreviewRangeText();
+            renderCalendar();
+            closeDatePicker();
+            applyDateFilter();
+        }
+
+        function updatePresetButtonUI(preset) {
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                if (btn.dataset.preset === preset) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        function updateDisplayLabel() {
+            const labelEl = document.getElementById('dateRangeDisplayLabel');
+            if (!labelEl) return;
+            if (selectedPreset === 'today') {
+                labelEl.innerText = `Today (${formatShortDate(activeStartDate)})`;
+            } else if (selectedPreset === 'yesterday') {
+                labelEl.innerText = `Yesterday (${formatShortDate(activeStartDate)})`;
+            } else if (selectedPreset === 'last7') {
+                labelEl.innerText = `Last 7 Days (${formatShortDate(activeStartDate)} – ${formatShortDate(activeEndDate)})`;
+            } else if (selectedPreset === 'last15') {
+                labelEl.innerText = `Last 15 Days (${formatShortDate(activeStartDate)} – ${formatShortDate(activeEndDate)})`;
+            } else if (selectedPreset === 'last30') {
+                labelEl.innerText = `Last 30 Days (${formatShortDate(activeStartDate)} – ${formatShortDate(activeEndDate)})`;
+            } else {
+                if (isSameDay(activeStartDate, activeEndDate)) {
+                    labelEl.innerText = `Custom (${formatShortDate(activeStartDate)})`;
+                } else {
+                    labelEl.innerText = `Custom (${formatShortDate(activeStartDate)} – ${formatShortDate(activeEndDate)})`;
+                }
+            }
+        }
+
+        function updatePreviewRangeText() {
+            const textEl = document.getElementById('calPreviewRangeText');
+            if (!textEl) return;
+            if (tempStartDate && tempEndDate) {
+                if (isSameDay(tempStartDate, tempEndDate)) {
+                    textEl.innerText = formatShortDate(tempStartDate);
+                } else {
+                    textEl.innerText = `${formatShortDate(tempStartDate)} – ${formatShortDate(tempEndDate)}`;
+                }
+            } else if (tempStartDate) {
+                textEl.innerText = `Start: ${formatShortDate(tempStartDate)} (Click End Date)`;
+            } else {
+                textEl.innerText = `Click on calendar to select Start Date`;
+            }
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calDaysGrid');
+            const monthLabel = document.getElementById('calMonthYearLabel');
+            grid.innerHTML = '';
+
+            const year = calCurrentMonth.getFullYear();
+            const month = calCurrentMonth.getMonth();
+            
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            monthLabel.innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Leading empty cells
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'cal-day-cell empty';
+                grid.appendChild(emptyCell);
+            }
+
+            // Month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                dayDate.setHours(0, 0, 0, 0);
+                const dayTime = dayDate.getTime();
+                
+                const cell = document.createElement('div');
+                cell.className = 'cal-day-cell text-slate-300';
+                cell.innerText = day;
+                cell.dataset.time = dayTime;
+
+                // Check selection states
+                const isStart = tempStartDate && isSameDay(dayDate, tempStartDate);
+                const isEnd = tempEndDate && isSameDay(dayDate, tempEndDate);
+                const inRange = tempStartDate && tempEndDate && dayDate > tempStartDate && dayDate < tempEndDate;
+
+                if (isStart || isEnd) {
+                    cell.classList.add('selected-endpoint');
+                } else if (inRange) {
+                    cell.classList.add('in-range');
+                }
+
+                // Fast, smooth hover state without DOM re-render
+                cell.addEventListener('mouseenter', () => {
+                    if (isSelectingCustom && tempStartDate && !tempEndDate) {
+                        const startTime = tempStartDate.getTime();
+                        const hoveredTime = dayTime;
+                        const min = Math.min(startTime, hoveredTime);
+                        const max = Math.max(startTime, hoveredTime);
+
+                        grid.querySelectorAll('.cal-day-cell:not(.empty)').forEach(c => {
+                            const cTime = Number(c.dataset.time);
+                            if (cTime >= min && cTime <= max) {
+                                if (cTime === startTime) {
+                                    c.classList.add('selected-endpoint');
+                                    c.classList.remove('in-range-hover');
+                                } else {
+                                    c.classList.add('in-range-hover');
+                                }
+                            } else {
+                                c.classList.remove('in-range-hover');
+                                if (cTime !== startTime) c.classList.remove('selected-endpoint');
+                            }
+                        });
+                    }
+                });
+
+                // Range Selection Click Handler
+                cell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+
+                    if (!isSelectingCustom || !tempStartDate || tempEndDate) {
+                        // First click: Start date
+                        tempStartDate = new Date(dayDate);
+                        tempStartDate.setHours(0, 0, 0, 0);
+                        tempEndDate = null;
+                        isSelectingCustom = true;
+                        
+                        selectedPreset = 'custom';
+                        updatePresetButtonUI('custom');
+                        updatePreviewRangeText();
+                        renderCalendar();
+                    } else {
+                        // Second click: End date
+                        if (dayDate.getTime() < tempStartDate.getTime()) {
+                            tempEndDate = new Date(tempStartDate);
+                            tempEndDate.setHours(23, 59, 59, 999);
+                            tempStartDate = new Date(dayDate);
+                            tempStartDate.setHours(0, 0, 0, 0);
+                        } else {
+                            tempEndDate = new Date(dayDate);
+                            tempEndDate.setHours(23, 59, 59, 999);
+                        }
+                        
+                        isSelectingCustom = false;
+
+                        // Master Controller: update active range & apply immediately
+                        activeStartDate = new Date(tempStartDate);
+                        activeEndDate = new Date(tempEndDate);
+                        selectedPreset = 'custom';
+                        
+                        updatePresetButtonUI('custom');
+                        updateDisplayLabel();
+                        updatePreviewRangeText();
+                        renderCalendar();
+                        
+                        // Apply immediately to top cards and all 3 tabs
+                        applyDateFilter();
+                        
+                        // Smoothly close popover after 250ms visual feedback
+                        setTimeout(() => {
+                            closeDatePicker();
+                        }, 250);
+                    }
+                });
+
+                grid.appendChild(cell);
+            }
+
+            // Remove hover glow when leaving calendar grid
+            grid.addEventListener('mouseleave', () => {
+                if (isSelectingCustom && tempStartDate && !tempEndDate) {
+                    grid.querySelectorAll('.cal-day-cell:not(.empty)').forEach(c => {
+                        c.classList.remove('in-range-hover');
+                    });
+                }
+            });
+        }
+
+        // ==========================================
+        // MASTER CONTROLLER & DATA DISPATCHER
+        // ==========================================
+        function applyDateFilter() {
+            if (unsubOrders) { unsubOrders(); unsubOrders = null; }
+            if (unsubSessions) { unsubSessions(); unsubSessions = null; }
+
+            const from = new Date(activeStartDate);
+            from.setHours(0, 0, 0, 0);
+            
+            const to = new Date(activeEndDate);
+            to.setHours(23, 59, 59, 999);
+
+            const fromTimestamp = firebase.firestore.Timestamp.fromDate(from);
+            const toTimestamp = firebase.firestore.Timestamp.fromDate(to);
+
+            // 1. Listen to Orders
+            try {
+                unsubOrders = db.collection('orders')
+                    .where('timestamp', '>=', fromTimestamp)
+                    .where('timestamp', '<=', toTimestamp)
+                    .orderBy('timestamp', 'desc')
+                    .onSnapshot(snap => {
+                        processOrders(snap);
+                    }, err => {
+                        console.warn("Orders range query with orderBy failed, using real-time fallback:", err);
+                        unsubOrders = db.collection('orders')
+                            .where('timestamp', '>=', fromTimestamp)
+                            .where('timestamp', '<=', toTimestamp)
+                            .onSnapshot(snap => processOrders(snap), e => console.error("Orders fallback error:", e));
+                    });
+            } catch(e) { console.error("Orders listener error:", e); }
+
+            // 2. Listen to User Sessions
+            try {
+                unsubSessions = db.collection('user_sessions')
+                    .where('startTime', '>=', fromTimestamp)
+                    .where('startTime', '<=', toTimestamp)
+                    .orderBy('startTime', 'desc')
+                    .onSnapshot(snap => {
+                        processSessions(snap);
+                    }, err => {
+                        console.warn("Sessions range query with orderBy failed, using real-time fallback:", err);
+                        unsubSessions = db.collection('user_sessions')
+                            .where('startTime', '>=', fromTimestamp)
+                            .where('startTime', '<=', toTimestamp)
+                            .onSnapshot(snap => processSessions(snap), e => console.error("Sessions fallback error:", e));
+                    });
+            } catch(e) { console.error("Sessions listener error:", e); }
+        }
+
+        // ==========================================
+        // DATA PROCESSORS
+        // ==========================================
+
+        // Process Orders (Tab 1 & Tab 2)
+        function processOrders(snapshot) {
+            const container = document.getElementById('ordersContainer');
+            container.innerHTML = '';
+            
+            let totalRevenue = 0;
+            let totalOrders = 0;
+            const itemMap = {};
+
+            const docs = [];
+            snapshot.forEach(doc => docs.push({ id: doc.id, data: doc.data() }));
+
+            // Always ensure newest orders are first
+            docs.sort((a, b) => {
+                const tA = safeGetDate(a.data.timestamp)?.getTime() || 0;
+                const tB = safeGetDate(b.data.timestamp)?.getTime() || 0;
+                return tB - tA;
+            });
+
+            if (docs.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-16 text-center text-slate-500 font-medium">
+                        <i class="fas fa-shopping-bag text-3xl mb-3 text-slate-600 block"></i>
+                        No successful orders found for this date range.
+                    </div>
+                `;
+            }
+
+            docs.forEach(item => {
+                const data = item.data;
+                const id = item.id;
+                
+                totalRevenue += data.grandTotal || 0;
+                totalOrders++;
+                
+                // Aggregate items for Tab 2
+                (data.items || []).forEach(it => {
+                    const pureKey = it.variant ? `${it.name} (${it.variant})` : it.name;
+                    const htmlVariant = it.variant ? `<span class="text-[10px] text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded-full border border-blue-400/20">${it.variant}</span>` : '';
+                    
+                    if (!itemMap[pureKey]) {
+                        itemMap[pureKey] = { name: it.name, variantHtml: htmlVariant, qty: 0, revenue: 0 };
+                    }
+                    itemMap[pureKey].qty += it.quantity;
+                    itemMap[pureKey].revenue += it.subtotal;
+                });
+
+                // Render Order Card
+                renderOrderCard(container, data, id);
+            });
+
+            // Update Top Summary Cards
+            document.getElementById('valRevenue').innerText = '₹' + totalRevenue.toLocaleString('en-IN');
+            document.getElementById('valOrders').innerText = totalOrders.toLocaleString('en-IN');
+            document.getElementById('tabBadgeOrders').innerText = totalOrders;
+
+            // Render Tab 2 Analytics
+            renderItemAnalytics(Object.values(itemMap));
+        }
+
+        // Process Sessions (Tab 3)
+        function processSessions(snapshot) {
+            const container = document.getElementById('sessionsContainer');
+            container.innerHTML = '';
+            
+            const docs = [];
+            snapshot.forEach(doc => docs.push({ id: doc.id, data: doc.data() }));
+
+            // Always ensure newest sessions are first
+            docs.sort((a, b) => {
+                const tA = (safeGetDate(a.data.startTime) || safeGetDate(a.data.timestamp))?.getTime() || 0;
+                const tB = (safeGetDate(b.data.startTime) || safeGetDate(b.data.timestamp))?.getTime() || 0;
+                return tB - tA;
+            });
+
+            const totalVisits = docs.length;
+            document.getElementById('valVisits').innerText = totalVisits.toLocaleString('en-IN');
+            document.getElementById('tabBadgeSessions').innerText = totalVisits;
+
+            if (docs.length === 0) {
+                container.innerHTML = `
+                    <div class="py-16 text-center text-slate-500 font-medium">
+                        <i class="fas fa-route text-3xl mb-3 text-slate-600 block"></i>
+                        No user sessions recorded for this date range.
+                    </div>
+                `;
+                return;
+            }
+
+            docs.forEach((item, index) => {
+                const session = item.data;
+                const sessionId = item.id;
+                renderSessionRow(container, session, sessionId, index);
+            });
+        }
+
+        // ==========================================
+        // RENDER HELPERS
+        // ==========================================
+
+        function renderOrderCard(container, data, id) {
+            const dateObj = safeGetDate(data.timestamp);
+            const timeStr = dateObj ? formatFullDateTime(dateObj) : 'N/A';
+            
+            const itemsHtml = (data.items || []).map(it => `
+                <div class="flex justify-between items-center text-sm py-2 border-b border-slate-800 last:border-0">
+                    <div class="text-slate-300 flex-1 pr-3 flex items-center gap-2">
+                        <span class="font-bold text-white bg-slate-800 px-2 py-0.5 rounded text-xs">${it.quantity}x</span>
+                        <span class="font-medium">${it.name}</span>
+                        ${it.variant ? `<span class="text-[10px] text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded">${it.variant}</span>` : ''}
+                    </div>
+                    <div class="text-white font-semibold text-sm">₹${it.subtotal}</div>
+                </div>
+            `).join('');
+
+            const offersHtml = (data.unlockedOffers && data.unlockedOffers.length) ? `
+                <div class="mt-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-2">
+                    <i class="fas fa-gift text-sm"></i> 
+                    <span>Unlocked: ${data.unlockedOffers.join(', ')}</span>
+                </div>
+            ` : '';
+
+            const card = `
+                <div class="glass-card rounded-2xl p-6 flex flex-col justify-between relative group">
+                    <div>
+                        <div class="flex justify-between items-start mb-4 pb-3 border-b border-slate-800">
+                            <div>
+                                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                                    <i class="far fa-clock mr-1 text-blue-400"></i> ${timeStr}
+                                </span>
+                            </div>
+                            <button onclick="deleteOrder('${id}')" title="Delete Order" class="text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 p-1.5 rounded-lg text-xs transition-all opacity-0 group-hover:opacity-100 cursor-pointer">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-1 mb-4">
+                            ${itemsHtml}
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-slate-800 space-y-2 text-xs text-slate-400">
+                        <div class="flex justify-between"><span>Item Total</span><span class="text-slate-200 font-semibold">₹${data.itemTotal || 0}</span></div>
+                        <div class="flex justify-between"><span>Delivery</span><span class="text-slate-200 font-semibold">${data.deliveryFee === 'FREE' ? '<span class="text-emerald-400 font-bold bg-emerald-400/10 px-1.5 py-0.5 rounded">FREE</span>' : '₹' + data.deliveryFee}</span></div>
+                        <div class="flex justify-between"><span>Parcel Charge</span><span class="text-slate-200 font-semibold">₹${data.parcelCharge || 0}</span></div>
+                        
+                        <div class="flex justify-between items-end pt-3 mt-1 border-t border-slate-800">
+                            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Grand Total</span>
+                            <span class="text-2xl font-black text-blue-400">₹${data.grandTotal || 0}</span>
+                        </div>
+                        ${offersHtml}
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', card);
+        }
+
+        function renderItemAnalytics(items) {
+            const container = document.getElementById('analyticsGrid');
+            container.innerHTML = '';
+            
+            items.sort((a, b) => b.qty - a.qty);
+            document.getElementById('tabBadgeAnalytics').innerText = items.length;
+
+            if (!items.length) {
+                container.innerHTML = `
+                    <div class="col-span-full py-16 text-center text-slate-500 font-medium">
+                        <i class="fas fa-chart-pie text-3xl mb-3 text-slate-600 block"></i>
+                        No sales data available for this date range.
+                    </div>
+                `;
+                return;
+            }
+
+            const maxQty = items[0].qty || 1;
+
+            items.forEach((it, index) => {
+                const rank = index + 1;
+                let rankBadge = `<span class="w-6 h-6 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold flex items-center justify-center">#${rank}</span>`;
+                if (rank === 1) rankBadge = `<span class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-black flex items-center justify-center">👑</span>`;
+                if (rank === 2) rankBadge = `<span class="w-6 h-6 rounded-lg bg-slate-300/20 text-slate-200 border border-slate-300/30 text-xs font-black flex items-center justify-center">#2</span>`;
+                if (rank === 3) rankBadge = `<span class="w-6 h-6 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-black flex items-center justify-center">#3</span>`;
+
+                const percent = Math.min(100, Math.round((it.qty / maxQty) * 100));
+
+                container.insertAdjacentHTML('beforeend', `
+                    <div class="glass-card rounded-2xl p-5 flex flex-col justify-between gap-4">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-white leading-snug mb-1">${it.name}</h4>
+                                ${it.variantHtml}
+                            </div>
+                            ${rankBadge}
+                        </div>
+                        
+                        <div>
+                            <div class="w-full bg-slate-800/80 rounded-full h-1.5 mb-3 overflow-hidden">
+                                <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
+                            </div>
+                            
+                            <div class="flex justify-between items-end pt-2 border-t border-slate-800/80">
+                                <div>
+                                    <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Qty Sold</p>
+                                    <p class="text-xl font-black text-white">${it.qty}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Revenue</p>
+                                    <p class="text-xl font-black text-blue-400">₹${it.revenue.toLocaleString('en-IN')}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `);
+            });
+        }
+
+        function renderSessionRow(container, session, sessionId, index) {
+            const dateObj = safeGetDate(session.startTime) || safeGetDate(session.timestamp);
+            const timeStr = dateObj ? formatFullDateTime(dateObj) : 'Recent Session';
+            const duration = session.duration || '0m 0s';
+            const timeline = session.timeline || [];
+            
+            // Status Badge
+            let statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700"><i class="fas fa-eye mr-1"></i> Browsed</span>`;
+            if (session.ordered) {
+                statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><i class="fas fa-check-circle mr-1"></i> Ordered (₹${session.cartTotal || 0})</span>`;
+            } else if (session.cartAbandoned) {
+                statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20"><i class="fas fa-ghost mr-1"></i> Abandoned (${session.cartItemCount || 0} items • ₹${session.cartTotal || 0})</span>`;
+            } else if (session.status === 'Active') {
+                statusBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20"><i class="fas fa-circle text-[8px] animate-pulse mr-1"></i> Active Now</span>`;
+            }
+
+            // Timeline Items with Proper FontAwesome Icons
+            const timelineHtml = timeline.map(event => {
+                let icon = "fas fa-circle-dot text-blue-400";
+                const act = event.action || "";
+                if (act.includes("Visited")) icon = "fas fa-globe text-purple-400";
+                else if (act.includes("Opened Item")) icon = "fas fa-eye text-sky-400";
+                else if (act.includes("Closed Item")) icon = "fas fa-times-circle text-slate-500";
+                else if (act.includes("Zoomed")) icon = "fas fa-search-plus text-indigo-400";
+                else if (act.includes("Added to cart")) icon = "fas fa-plus text-emerald-400";
+                else if (act.includes("Increased Qty")) icon = "fas fa-arrow-up text-teal-400";
+                else if (act.includes("Decreased Qty")) icon = "fas fa-arrow-down text-amber-400";
+                else if (act.includes("Removed from cart")) icon = "fas fa-trash-alt text-rose-400";
+                else if (act.includes("Preparation") || act.includes("Size") || act.includes("Flavor")) icon = "fas fa-sliders-h text-cyan-400";
+                else if (act.includes("WhatsApp")) icon = "fab fa-whatsapp text-emerald-400";
+                else if (act.includes("Call")) icon = "fas fa-phone-alt text-emerald-400";
+                else if (act.includes("Location") || act.includes("Address")) icon = "fas fa-map-marker-alt text-blue-400";
+                else if (act.includes("Completed Order") || act.includes("Order via WhatsApp")) icon = "fas fa-trophy text-amber-400";
+
+                return `
+                    <div class="relative pl-7 pb-4 last:pb-0">
+                        <div class="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-slate-900 border border-slate-700/80 flex items-center justify-center -translate-x-[10px] text-[10px] shadow-sm">
+                            <i class="${icon}"></i>
+                        </div>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-medium text-slate-200">${event.action}</span>
+                            <span class="text-[11px] font-mono text-slate-400 ml-4 flex-shrink-0">${event.time || ''}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Abandoned Cart Breakdown Box
+            let abandonedBox = '';
+            if (session.cartAbandoned && session.finalCart && session.finalCart.length > 0) {
+                const cartRows = session.finalCart.map(it => `
+                    <div class="flex justify-between text-xs py-1 border-b border-slate-800 last:border-0 text-slate-300">
+                        <div>
+                            <span class="font-bold text-white mr-1">${it.quantity}x</span> ${it.name}
+                            ${it.variant ? `<span class="text-[10px] text-slate-400 ml-1">(${it.variant})</span>` : ''}
+                        </div>
+                        <span class="font-semibold text-slate-200">₹${it.subtotal}</span>
+                    </div>
+                `).join('');
+
+                abandonedBox = `
+                    <div class="mt-4 p-4 rounded-xl bg-amber-500/5 border border-amber-500/15">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fas fa-ghost"></i> Unpurchased Cart Items
+                            </span>
+                            <span class="text-xs font-black text-amber-400">Total: ₹${session.cartTotal || 0}</span>
+                        </div>
+                        <div class="space-y-1">
+                            ${cartRows}
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.insertAdjacentHTML('beforeend', `
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <!-- Accordion Trigger Header -->
+                    <div onclick="toggleAccordion('${sessionId}')" class="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-800/40 transition-colors select-none">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
+                                    <i class="fas fa-user-clock text-xs"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="text-sm font-bold text-white">${timeStr}</h4>
+                                        <button onclick="deleteSession('${sessionId}', event)" title="Delete Session" class="text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 p-1 rounded-md text-xs transition-all cursor-pointer">
+                                            <i class="fas fa-trash-alt text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400 font-medium">Session ID: <span class="font-mono">${sessionId.substring(0, 16)}...</span></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-mono font-bold text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                                <i class="far fa-clock mr-1 text-slate-400"></i> ${duration}
+                            </span>
+                            ${statusBadge}
+                            <span class="hidden md:inline-block text-xs font-semibold text-slate-400">
+                                ${timeline.length} Actions
+                            </span>
+                            <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 transition-transform duration-200" id="icon-acc-${sessionId}">
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Accordion Expandable Timeline Content (Fixed height & padding) -->
+                    <div id="acc-${sessionId}" class="accordion-content">
+                        <div class="px-6 py-5 border-t border-slate-800/80 bg-slate-900/30">
+                            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <i class="fas fa-stream text-blue-400"></i> Step-By-Step User Behavior Timeline
+                            </div>
+                            
+                            <div class="border-l-2 border-slate-800 ml-2 space-y-1">
+                                ${timelineHtml.length ? timelineHtml : '<div class="text-xs text-slate-500 pl-4 py-2">No timeline events recorded.</div>'}
+                            </div>
+                            
+                            ${abandonedBox}
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+
+        function toggleAccordion(id) {
+            const content = document.getElementById('acc-' + id);
+            const icon = document.getElementById('icon-acc-' + id);
+            if (!content) return;
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                if (icon) icon.classList.remove('rotate-180');
+            } else {
+                content.classList.add('open');
+                if (icon) icon.classList.add('rotate-180');
+            }
+        }
+
+        function initTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    e.currentTarget.classList.add('active');
+                    const target = e.currentTarget.dataset.target;
+                    document.getElementById(target).classList.add('active');
+                });
+            });
+        }
+
+        function deleteOrder(id) {
+            if (confirm("Are you sure you want to permanently delete this order?")) {
+                db.collection('orders').doc(id).delete()
+                  .catch(err => console.error("Error deleting order:", err));
+            }
+        }
+
+        function deleteSession(id, event) {
+            if (event) event.stopPropagation();
+            if (confirm("Are you sure you want to permanently delete this user session?")) {
+                db.collection('user_sessions').doc(id).delete()
+                  .catch(err => console.error("Error deleting session:", err));
+            }
+        }
+
+        // ==========================================
+        // DATE & TIME HELPERS
+        // ==========================================
+        function safeGetDate(field) {
+            if (!field) return null;
+            if (typeof field.toDate === 'function') return field.toDate();
+            if (field instanceof Date) return field;
+            if (typeof field === 'number' || typeof field === 'string') {
+                const d = new Date(field);
+                return isNaN(d.getTime()) ? null : d;
+            }
+            if (field.seconds !== undefined) {
+                return new Date(field.seconds * 1000);
+            }
+            return null;
+        }
+
+        function formatShortDate(date) {
+            if (!date) return '';
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        }
+
+        function formatFullDateTime(date) {
+            if (!date) return '';
+            const dateStr = formatShortDate(date);
+            let hours = date.getHours();
+            let minutes = date.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const strMinutes = minutes < 10 ? '0' + minutes : minutes;
+            return `${dateStr} at ${hours}:${strMinutes} ${ampm}`;
+        }
+
+        function isSameDay(d1, d2) {
+            if (!d1 || !d2) return false;
+            return d1.getFullYear() === d2.getFullYear() &&
+                   d1.getMonth() === d2.getMonth() &&
+                   d1.getDate() === d2.getDate();
+        }
+    </script>
+</body>
+</html>
